@@ -24,6 +24,16 @@ npm run lint
 npm run test
 ```
 
+## Environment Setup
+
+Copy `.env.example` to `.env.local` for local development:
+
+```bash
+cp .env.example .env.local
+```
+
+Never commit real API keys. Keep external API calls server-side only, and do not expose provider keys in frontend code.
+
 ## Current Scope
 
 This first version includes:
