@@ -2,6 +2,16 @@ export type NormalizedSwap = {
   txHash: string;
   status: "success" | "failed";
   usdValue?: number | null;
+  timestamp?: string | number;
+  tokenIn?: NormalizedSwapToken;
+  tokenOut?: NormalizedSwapToken;
+  source?: string;
+  chain?: string | number;
+};
+
+export type NormalizedSwapToken = {
+  address?: string;
+  symbol?: string;
 };
 
 export type RankName =
