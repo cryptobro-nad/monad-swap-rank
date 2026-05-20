@@ -1,1 +1,3 @@
-# monad-swap-rank
+# Monad Swap Rank
+
+Planning stage.
