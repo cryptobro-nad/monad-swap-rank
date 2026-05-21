@@ -187,13 +187,27 @@ export default async function WalletPage({ params }: WalletPageProps) {
           <StatsCard label="Last Updated" value={result.lastUpdated} />
         </section>
 
-        <section className="mt-6 max-w-3xl rounded-md border border-white/10 bg-white/[0.07] p-5 text-sm leading-6 text-white/72 shadow-sm">
-          <p>
-            This rank is based on Mobula-detected swaps on Monad mainnet.
+        <section
+          aria-labelledby="rank-transparency"
+          className="mt-6 max-w-3xl rounded-md border border-white/10 bg-white/[0.07] p-5 text-sm leading-6 text-white/72 shadow-sm"
+        >
+          <h2
+            id="rank-transparency"
+            className="text-sm font-semibold text-white"
+          >
+            What this rank counts
+          </h2>
+          <p className="mt-3">
+            Your rank is based on Mobula-detected swaps on Monad mainnet, not
+            total wallet transactions.
           </p>
           <p className="mt-3">
-            Token holdings, NFT holdings, and total transactions from explorers
-            like MonadVision are not included yet.
+            Token holdings, NFT holdings, and explorer counts like MonadVision
+            are not included yet, so those numbers may look different.
+          </p>
+          <p className="mt-3">
+            Very active wallets are checked across up to 1,000 detected swap
+            records, and results may be cached for a few minutes.
           </p>
         </section>
 
