@@ -8,7 +8,8 @@
     "build": "next build",
     "lint": "eslint .",
     "test": "vitest run --environment node --globals --dir tests",
-    "test:mobula": "node --experimental-strip-types scripts/test-mobula-wallet-trades.ts"
+    "test:mobula": "node --experimental-strip-types scripts/test-mobula-wallet-trades.ts",
+    "test:blockvision": "node --experimental-strip-types scripts/test-blockvision-wallet-stats.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.2",
