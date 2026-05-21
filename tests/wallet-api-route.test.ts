@@ -111,10 +111,10 @@ describe("GET /api/wallet/[address]", () => {
       },
       estimatedSwapVolume: 400,
       totalSwaps: 2,
-      tokensHeld: 12,
-      nftsHeld: 6,
       lastUpdated: "just now"
     });
+    expect(payload).not.toHaveProperty("tokensHeld");
+    expect(payload).not.toHaveProperty("nftsHeld");
   });
 
   it("returns No Swap Data when Mobula returns no trades", async () => {
