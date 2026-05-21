@@ -8,8 +8,6 @@ export function getMockWalletRankResult(walletAddress: string): WalletRankResult
     rank: getRankFromVolume(MOCK_ESTIMATED_SWAP_VOLUME_USD),
     estimatedSwapVolume: MOCK_ESTIMATED_SWAP_VOLUME_USD,
     totalSwaps: 74,
-    tokensHeld: 12,
-    nftsHeld: 6,
     lastUpdated: "2 minutes ago"
   };
 }
