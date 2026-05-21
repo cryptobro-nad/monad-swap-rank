@@ -2,11 +2,9 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { AlertCircle, ArrowLeft, CheckCircle2, Info, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NftHoldings } from "@/components/nft-holdings";
-import { RankCard } from "@/components/rank-card";
 import { ShareResultButton } from "@/components/share-result-button";
 import { StatsCard } from "@/components/stats-card";
-import { TokenHoldings } from "@/components/token-holdings";
+import { ShareableRankCard } from "@/components/shareable-rank-card";
 import { DISCLAIMER } from "@/lib/constants";
 import { type WalletRankResult } from "@/lib/ranking";
 import { getWalletResultDisplay } from "@/lib/wallet-result-display";
@@ -20,9 +18,11 @@ type WalletPageProps = {
 type WalletResultState =
   | {
       result: WalletRankResult;
+      appUrl: string;
       error?: never;
     }
   | {
+      appUrl: string;
       result?: never;
       error: string;
     };
@@ -35,15 +35,17 @@ async function fetchWalletResult(address: string): Promise<WalletResultState> {
     (host.startsWith("localhost") || host.startsWith("127.0.0.1")
       ? "http"
       : "https");
+  const appUrl = `${protocol}://${host}`;
   let response: Response;
 
   try {
     response = await fetch(
-      `${protocol}://${host}/api/wallet/${encodeURIComponent(address)}`,
+      `${appUrl}/api/wallet/${encodeURIComponent(address)}`,
       { cache: "no-store" }
     );
   } catch {
     return {
+      appUrl,
       error: "Unable to reach the wallet result service right now."
     };
   }
@@ -52,23 +54,25 @@ async function fetchWalletResult(address: string): Promise<WalletResultState> {
 
   if (!response.ok) {
     return {
+      appUrl,
       error: getApiErrorMessage(payload)
     };
   }
 
   if (!isWalletRankResult(payload)) {
     return {
+      appUrl,
       error: "Wallet result data came back in an unexpected format."
     };
   }
 
-  return { result: payload };
+  return { result: payload, appUrl };
 }
 
 export default async function WalletPage({ params }: WalletPageProps) {
   const { address } = await params;
   const walletAddress = decodeURIComponent(address);
-  const { result, error } = await fetchWalletResult(walletAddress);
+  const { result, error, appUrl } = await fetchWalletResult(walletAddress);
 
   if (error || !result) {
     return (
@@ -134,14 +138,18 @@ export default async function WalletPage({ params }: WalletPageProps) {
     );
   }
 
-  const display = getWalletResultDisplay(result);
+  const display = getWalletResultDisplay(result, appUrl);
   const StatusIcon = display.hasSwapData ? CheckCircle2 : Info;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,hsl(263_77%_90%),transparent_32rem),linear-gradient(135deg,hsl(220_36%_98%),hsl(168_38%_94%))]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,hsl(263_77%_20%),transparent_34rem),radial-gradient(circle_at_bottom_right,hsl(160_58%_18%),transparent_30rem),linear-gradient(135deg,hsl(260_45%_8%),hsl(232_34%_10%))] text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-8 sm:px-8 sm:py-12">
         <div className="mb-8">
-          <Button asChild variant="ghost" className="gap-2 px-0">
+          <Button
+            asChild
+            variant="ghost"
+            className="gap-2 px-0 text-white/80 hover:bg-white/10 hover:text-white"
+          >
             <Link href="/">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Back
@@ -149,64 +157,52 @@ export default async function WalletPage({ params }: WalletPageProps) {
           </Button>
         </div>
 
-        <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-md border bg-white/75 px-3 py-2 text-sm font-medium text-muted-foreground shadow-sm">
-            <CheckCircle2 className="h-4 w-4 text-secondary" aria-hidden="true" />
-            Live wallet result
-          </div>
-          <h1 className="mt-2 text-4xl font-semibold tracking-normal text-foreground sm:text-5xl">
-            Monad Swap Rank
-          </h1>
-          <p className="mt-4 break-all rounded-md border bg-white/75 px-4 py-3 text-sm font-medium text-muted-foreground shadow-sm">
-            {result.walletAddress}
-          </p>
+        <ShareableRankCard visual={display.rankVisual} />
 
-          <section className="mt-4 rounded-md border bg-white/80 p-4 shadow-sm">
-            <div className="flex gap-3">
-              <StatusIcon
-                className="mt-0.5 h-5 w-5 shrink-0 text-secondary"
-                aria-hidden="true"
-              />
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {display.statusTitle}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  {display.statusDescription}
-                </p>
-              </div>
+        <section className="mt-6 rounded-md border border-white/10 bg-white/[0.07] p-5 shadow-xl shadow-black/20 backdrop-blur">
+          <div className="flex gap-3">
+            <StatusIcon
+              className="mt-0.5 h-5 w-5 shrink-0 text-secondary"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {display.statusTitle}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-white/70">
+                {display.statusDescription}
+              </p>
             </div>
-          </section>
-        </div>
-
-        <div className="mt-8 grid gap-4 lg:grid-cols-[1.25fr_1fr]">
-          <RankCard
-            rank={result.rank.rank}
-            estimatedSwapVolume={display.estimatedSwapVolume}
-            totalSwaps={display.totalSwaps}
-            lastUpdated={result.lastUpdated}
-          />
-
-          <div className="grid gap-4">
-            <StatsCard label="Total Swaps" value={display.totalSwaps} />
-            <TokenHoldings count={display.tokensHeld} />
-            <NftHoldings count={display.nftsHeld} />
           </div>
-        </div>
+        </section>
+
+        <section className="mt-6 grid gap-4 md:grid-cols-3">
+          <StatsCard
+            label="Estimated Swap Volume"
+            value={display.estimatedSwapVolume}
+          />
+          <StatsCard label="Mobula-Detected Swaps" value={display.totalSwaps} />
+          <StatsCard label="Last Updated" value={result.lastUpdated} />
+        </section>
 
         <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
           <ShareResultButton resultText={display.shareText} />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/65">
             Last updated {result.lastUpdated}
           </p>
         </div>
 
-        <p className="mt-6 max-w-3xl rounded-md border bg-white/75 p-4 text-sm leading-6 text-muted-foreground shadow-sm">
-          Swap volume is live from Mobula wallet trades. Token and NFT counts
-          are placeholder values for now.
-        </p>
+        <section className="mt-6 max-w-3xl rounded-md border border-white/10 bg-white/[0.07] p-5 text-sm leading-6 text-white/72 shadow-sm">
+          <p>
+            This rank is based on Mobula-detected swaps on Monad mainnet.
+          </p>
+          <p className="mt-3">
+            Token holdings, NFT holdings, and total transactions from explorers
+            like MonadVision are not included yet.
+          </p>
+        </section>
 
-        <p className="mt-8 max-w-3xl rounded-md border bg-white/75 p-4 text-sm leading-6 text-muted-foreground shadow-sm">
+        <p className="mt-8 max-w-3xl rounded-md border border-white/10 bg-white/[0.07] p-4 text-sm leading-6 text-white/68 shadow-sm">
           {DISCLAIMER}
         </p>
       </section>
@@ -247,8 +243,6 @@ function isWalletRankResult(value: unknown): value is WalletRankResult {
     typeof value.rank.volumeUsd === "number" &&
     typeof value.estimatedSwapVolume === "number" &&
     typeof value.totalSwaps === "number" &&
-    typeof value.tokensHeld === "number" &&
-    typeof value.nftsHeld === "number" &&
     typeof value.lastUpdated === "string"
   );
 }
