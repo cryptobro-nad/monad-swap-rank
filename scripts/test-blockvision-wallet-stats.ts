@@ -2,19 +2,34 @@
 const BLOCKVISION_BASE_URL = "https://api.blockvision.org/v2/monad";
 const BLOCKVISION_API_KEY = "BLOCKVISION_API_KEY";
 const FIRST_PAGE_LIMIT = "50";
+const BETWEEN_ENDPOINT_DELAY_MS = 1750;
+const RATE_LIMIT_RETRY_DELAY_MS = 7500;
+const RATE_LIMIT_STATUS = 429;
 
 type JsonRecord = Record<string, unknown>;
+type EndpointKey = "tokens" | "nfts" | "transactions" | "activities";
 
 type CountSummary = {
   value?: number;
   source: "response-field" | "first-page-records" | "unavailable";
 };
 
+type RetrySummary = {
+  attempted: boolean;
+  initialStatus?: number;
+  finalStatus?: number;
+  delayMs?: number;
+  recovered?: boolean;
+};
+
 type EndpointSummary = {
+  key: EndpointKey;
   name: string;
   endpoint: string;
   status: number;
   ok: boolean;
+  rateLimited: boolean;
+  retry: RetrySummary;
   recordsReturned: number;
   count: CountSummary;
   paginationFieldsExist: boolean;
@@ -25,6 +40,7 @@ type EndpointSummary = {
     firstRecordKeys: string[];
   };
   sampleRecords: JsonRecord[];
+  message?: string;
   error?: unknown;
 };
 
@@ -32,6 +48,13 @@ type BlockVisionSummary = {
   wallet: string;
   provider: "BlockVision";
   network: "Monad";
+  endpointFilter: EndpointKey | "all";
+  requestPolicy: {
+    sequential: boolean;
+    betweenEndpointDelayMs: number;
+    rateLimitRetryDelayMs: number;
+    maxRetriesPerEndpoint: number;
+  };
   tokenCount?: number;
   nftCount?: number;
   transactionCount?: number;
@@ -39,6 +62,7 @@ type BlockVisionSummary = {
 };
 
 type BlockVisionEndpoint = {
+  key: EndpointKey;
   name: string;
   path: string;
   params: Record<string, string>;
@@ -56,11 +80,51 @@ function loadLocalEnv(): void {
   }
 }
 
-function getWalletArgument(): string | undefined {
-  return process.argv
-    .slice(2)
-    .find((argument) => argument !== "--")
-    ?.trim();
+function parseArguments(args: string[]): {
+  wallet?: string;
+  endpointFilter?: EndpointKey;
+  endpointError?: string;
+} {
+  let wallet: string | undefined;
+  let endpointFilter: EndpointKey | undefined;
+  let endpointError: string | undefined;
+
+  for (const argument of args) {
+    if (argument === "--") {
+      continue;
+    }
+
+    if (argument.startsWith("--endpoint=")) {
+      const rawEndpoint = argument.slice("--endpoint=".length).trim();
+
+      if (isEndpointKey(rawEndpoint)) {
+        endpointFilter = rawEndpoint;
+      } else {
+        endpointError = `Invalid endpoint "${rawEndpoint}". Use one of: tokens, nfts, transactions, activities.`;
+      }
+
+      continue;
+    }
+
+    if (!wallet) {
+      wallet = argument.trim();
+    }
+  }
+
+  return {
+    wallet,
+    endpointFilter,
+    endpointError
+  };
+}
+
+function isEndpointKey(value: string): value is EndpointKey {
+  return (
+    value === "tokens" ||
+    value === "nfts" ||
+    value === "transactions" ||
+    value === "activities"
+  );
 }
 
 function isEvmAddress(address: string): boolean {
@@ -313,16 +377,21 @@ function createEndpointSummary(
   endpoint: BlockVisionEndpoint,
   status: number,
   ok: boolean,
-  payload: unknown
+  payload: unknown,
+  retry: RetrySummary = { attempted: false },
+  message?: string
 ): EndpointSummary {
   const records = findFirstRecordArray(payload);
   const paginationFields = collectPaginationFields(payload);
 
   return {
+    key: endpoint.key,
     name: endpoint.name,
     endpoint: endpoint.path,
     status,
     ok,
+    rateLimited: status === RATE_LIMIT_STATUS,
+    retry,
     recordsReturned: records.length,
     count: getCountSummary(payload, records.length, endpoint.countKeys),
     paginationFieldsExist: paginationFields.length > 0,
@@ -333,6 +402,7 @@ function createEndpointSummary(
       firstRecordKeys: getRecordKeys(records[0])
     },
     sampleRecords: endpoint.includeSampleRecords ? summarizeRecords(records) : [],
+    message,
     error: ok ? undefined : payload
   };
 }
@@ -352,7 +422,13 @@ function parseJsonResponse(responseText: string): unknown {
   }
 }
 
-async function requestEndpoint(
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function requestEndpointOnce(
   endpoint: BlockVisionEndpoint,
   apiKey: string
 ): Promise<EndpointSummary> {
@@ -374,16 +450,73 @@ async function requestEndpoint(
   return createEndpointSummary(endpoint, response.status, response.ok, payload);
 }
 
+async function requestEndpointWithRateLimitRetry(
+  endpoint: BlockVisionEndpoint,
+  apiKey: string
+): Promise<EndpointSummary> {
+  const firstAttempt = await requestEndpointOnce(endpoint, apiKey);
+
+  if (firstAttempt.status !== RATE_LIMIT_STATUS) {
+    return firstAttempt;
+  }
+
+  await delay(RATE_LIMIT_RETRY_DELAY_MS);
+
+  const retryAttempt = await requestEndpointOnce(endpoint, apiKey);
+  const recovered = retryAttempt.status !== RATE_LIMIT_STATUS && retryAttempt.ok;
+  const retry: RetrySummary = {
+    attempted: true,
+    initialStatus: firstAttempt.status,
+    finalStatus: retryAttempt.status,
+    delayMs: RATE_LIMIT_RETRY_DELAY_MS,
+    recovered
+  };
+  const message = recovered
+    ? "Endpoint initially returned HTTP 429, then succeeded after one delayed retry."
+    : "Endpoint returned HTTP 429. Retried once after a delay; still limited or unavailable.";
+
+  return {
+    ...retryAttempt,
+    rateLimited: retryAttempt.status === RATE_LIMIT_STATUS,
+    retry,
+    message
+  };
+}
+
+async function requestEndpointsSequentially(
+  endpoints: BlockVisionEndpoint[],
+  apiKey: string
+): Promise<EndpointSummary[]> {
+  const summaries: EndpointSummary[] = [];
+
+  for (const [index, endpoint] of endpoints.entries()) {
+    if (index > 0) {
+      await delay(BETWEEN_ENDPOINT_DELAY_MS);
+    }
+
+    summaries.push(await requestEndpointWithRateLimitRetry(endpoint, apiKey));
+  }
+
+  return summaries;
+}
+
 async function main(): Promise<void> {
   loadLocalEnv();
 
-  const wallet = getWalletArgument();
+  const options = parseArguments(process.argv.slice(2));
+  const wallet = options.wallet;
   const apiKey = process.env[BLOCKVISION_API_KEY]?.trim();
 
   if (!wallet) {
     console.error(
-      "Missing wallet address. Usage: pnpm test:blockvision -- <wallet-address>"
+      "Missing wallet address. Usage: pnpm test:blockvision -- <wallet-address> [--endpoint=tokens|nfts|transactions|activities]"
     );
+    process.exitCode = 1;
+    return;
+  }
+
+  if (options.endpointError) {
+    console.error(options.endpointError);
     process.exitCode = 1;
     return;
   }
@@ -404,12 +537,14 @@ async function main(): Promise<void> {
 
   const endpoints: BlockVisionEndpoint[] = [
     {
+      key: "tokens",
       name: "accountTokens",
       path: "/account/tokens",
       params: { address: wallet },
       countKeys: ["tokenCount", "tokensCount", "total", "totalCount", "count"]
     },
     {
+      key: "nfts",
       name: "accountNfts",
       path: "/account/nfts",
       params: {
@@ -421,6 +556,7 @@ async function main(): Promise<void> {
       countKeys: ["nftCount", "nftsCount", "total", "totalCount", "count"]
     },
     {
+      key: "transactions",
       name: "accountTransactions",
       path: "/account/transactions",
       params: {
@@ -439,6 +575,7 @@ async function main(): Promise<void> {
       includeSampleRecords: true
     },
     {
+      key: "activities",
       name: "accountActivities",
       path: "/account/activities",
       params: {
@@ -450,10 +587,11 @@ async function main(): Promise<void> {
       includeSampleRecords: true
     }
   ];
+  const selectedEndpoints = options.endpointFilter
+    ? endpoints.filter((endpoint) => endpoint.key === options.endpointFilter)
+    : endpoints;
 
-  const summaries = await Promise.all(
-    endpoints.map((endpoint) => requestEndpoint(endpoint, apiKey))
-  );
+  const summaries = await requestEndpointsSequentially(selectedEndpoints, apiKey);
 
   const tokenSummary = summaries.find((summary) => summary.name === "accountTokens");
   const nftSummary = summaries.find((summary) => summary.name === "accountNfts");
@@ -465,6 +603,13 @@ async function main(): Promise<void> {
     wallet,
     provider: "BlockVision",
     network: "Monad",
+    endpointFilter: options.endpointFilter ?? "all",
+    requestPolicy: {
+      sequential: true,
+      betweenEndpointDelayMs: BETWEEN_ENDPOINT_DELAY_MS,
+      rateLimitRetryDelayMs: RATE_LIMIT_RETRY_DELAY_MS,
+      maxRetriesPerEndpoint: 1
+    },
     tokenCount: tokenSummary?.count.value,
     nftCount: nftSummary?.count.value,
     transactionCount: transactionSummary?.count.value,
