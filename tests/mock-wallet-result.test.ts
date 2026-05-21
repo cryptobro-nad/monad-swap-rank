@@ -15,9 +15,9 @@ describe("getMockWalletRankResult", () => {
       },
       estimatedSwapVolume: 42_180,
       totalSwaps: 74,
-      tokensHeld: 12,
-      nftsHeld: 6,
       lastUpdated: "2 minutes ago"
     });
+    expect(result).not.toHaveProperty("tokensHeld");
+    expect(result).not.toHaveProperty("nftsHeld");
   });
 });
