@@ -2,13 +2,24 @@
 
 import { useState } from "react";
 import { Share2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type ShareResultButtonProps = {
   resultText: string;
+  label?: string;
+  variant?: ButtonProps["variant"];
+  className?: string;
+  messageClassName?: string;
 };
 
-export function ShareResultButton({ resultText }: ShareResultButtonProps) {
+export function ShareResultButton({
+  resultText,
+  label = "Copy / Share Result",
+  variant,
+  className,
+  messageClassName
+}: ShareResultButtonProps) {
   const [message, setMessage] = useState("");
 
   async function handleShare() {
@@ -31,12 +42,22 @@ export function ShareResultButton({ resultText }: ShareResultButtonProps) {
 
   return (
     <div>
-      <Button type="button" className="h-12 gap-2" onClick={handleShare}>
+      <Button
+        type="button"
+        variant={variant}
+        className={cn("h-12 gap-2", className)}
+        onClick={handleShare}
+      >
         <Share2 className="h-4 w-4" aria-hidden="true" />
-        Copy / Share Result
+        {label}
       </Button>
       {message ? (
-        <p className="mt-2 text-sm font-medium text-muted-foreground">
+        <p
+          className={cn(
+            "mt-2 text-sm font-medium text-muted-foreground",
+            messageClassName
+          )}
+        >
           {message}
         </p>
       ) : null}
