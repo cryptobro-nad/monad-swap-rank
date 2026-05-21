@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Share2 } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 import { ShareableRankCard } from "@/components/shareable-rank-card";
 import { ShareResultButton } from "@/components/share-result-button";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ type RankCardShareActionsProps = {
 };
 
 const EXPORT_SCALE = 2;
+type PendingAction = "share" | "download" | null;
 
 export function RankCardShareActions({
   visual,
@@ -25,24 +26,14 @@ export function RankCardShareActions({
 }: RankCardShareActionsProps) {
   const cardRef = useRef<HTMLElement>(null);
   const [statusMessage, setStatusMessage] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   async function handleShareCard() {
-    setIsExporting(true);
+    setPendingAction("share");
     setStatusMessage("");
 
     try {
-      const cardElement = cardRef.current;
-
-      if (!cardElement) {
-        throw new Error("Missing rank card element.");
-      }
-
-      const blob = await renderRankCardToPngBlob(cardElement, visual);
-      const fileName = getRankCardFileName(visual.rank);
-      const file = new File([blob], fileName, {
-        type: RANK_CARD_EXPORT_MIME_TYPE
-      });
+      const { file } = await createRankCardImageFile(cardRef.current, visual);
 
       if (navigator.share && canSharePngFile(navigator, file)) {
         await navigator.share({
@@ -54,17 +45,39 @@ export function RankCardShareActions({
         return;
       }
 
-      downloadBlob(blob, fileName);
-      setStatusMessage("Downloaded card PNG.");
+      const copiedText = await copyShareTextFallback(shareText);
+      setStatusMessage(
+        copiedText
+          ? "Copied share text."
+          : "Image sharing is not supported here. Copy the share text instead."
+      );
     } catch {
       const copiedText = await copyShareTextFallback(shareText);
       setStatusMessage(
         copiedText
-          ? "Could not create the image, so copied the share text."
-          : "Could not create the image. Copy the share text instead."
+          ? "Copied share text."
+          : "Could not share the card image. Copy the share text instead."
       );
     } finally {
-      setIsExporting(false);
+      setPendingAction(null);
+    }
+  }
+
+  async function handleDownloadCard() {
+    setPendingAction("download");
+    setStatusMessage("");
+
+    try {
+      const { blob, fileName } = await createRankCardImageFile(
+        cardRef.current,
+        visual
+      );
+      downloadBlob(blob, fileName);
+      setStatusMessage("Downloaded card PNG.");
+    } catch {
+      setStatusMessage("Could not download the card image. Please try again.");
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -73,22 +86,26 @@ export function RankCardShareActions({
       <ShareableRankCard ref={cardRef} visual={visual} />
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
-        <div>
-          <Button
-            type="button"
-            className="h-12 gap-2"
-            onClick={handleShareCard}
-            disabled={isExporting}
-          >
-            <Share2 className="h-4 w-4" aria-hidden="true" />
-            {isExporting ? "Preparing Card" : "Share Card"}
-          </Button>
-          {statusMessage ? (
-            <p className="mt-2 text-sm font-medium text-white/68">
-              {statusMessage}
-            </p>
-          ) : null}
-        </div>
+        <Button
+          type="button"
+          className="h-12 gap-2"
+          onClick={handleShareCard}
+          disabled={pendingAction !== null}
+        >
+          <Share2 className="h-4 w-4" aria-hidden="true" />
+          {pendingAction === "share" ? "Preparing Card" : "Share Card"}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="h-12 gap-2 border-white/15 bg-white/[0.08] text-white hover:bg-white/15 hover:text-white"
+          onClick={handleDownloadCard}
+          disabled={pendingAction !== null}
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          {pendingAction === "download" ? "Preparing Card" : "Download Card"}
+        </Button>
 
         <ShareResultButton
           resultText={shareText}
@@ -98,8 +115,30 @@ export function RankCardShareActions({
           messageClassName="text-white/68"
         />
       </div>
+      {statusMessage ? (
+        <p className="mt-2 text-sm font-medium text-white/68">
+          {statusMessage}
+        </p>
+      ) : null}
     </section>
   );
+}
+
+async function createRankCardImageFile(
+  cardElement: HTMLElement | null,
+  visual: RankCardVisual
+): Promise<{ blob: Blob; file: File; fileName: string }> {
+  if (!cardElement) {
+    throw new Error("Missing rank card element.");
+  }
+
+  const blob = await renderRankCardToPngBlob(cardElement, visual);
+  const fileName = getRankCardFileName(visual.rank);
+  const file = new File([blob], fileName, {
+    type: RANK_CARD_EXPORT_MIME_TYPE
+  });
+
+  return { blob, file, fileName };
 }
 
 async function renderRankCardToPngBlob(
