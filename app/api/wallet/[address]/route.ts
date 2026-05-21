@@ -29,8 +29,6 @@ const MOBULA_API_URL = "https://api.mobula.io/api/2/wallet/trades";
 const MONAD_MAINNET_CHAIN_ID = "evm:143";
 const MOBULA_PAGE_LIMIT = 100;
 const MOBULA_MAX_PAGES = 5;
-const MOCK_TOKENS_HELD = 12;
-const MOCK_NFTS_HELD = 6;
 
 export async function GET(_request: Request, { params }: WalletRouteContext) {
   const { address } = await params;
@@ -216,8 +214,6 @@ function createWalletRankResult(
     rank: getRankFromVolume(estimatedSwapVolume),
     estimatedSwapVolume,
     totalSwaps: countUniqueSuccessfulSwaps(swaps),
-    tokensHeld: MOCK_TOKENS_HELD,
-    nftsHeld: MOCK_NFTS_HELD,
     lastUpdated: "just now"
   };
 }
