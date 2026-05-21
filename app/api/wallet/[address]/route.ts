@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { normalizeMobulaWalletTradesResponse } from "../../../../lib/providers/mobula";
 import {
+  MOBULA_TRADES_MAX_PAGES,
+  MOBULA_TRADES_PAGE_LIMIT,
+  shouldFetchNextMobulaTradesPage
+} from "../../../../lib/providers/mobula-pagination";
+import {
   calculateTotalSwapVolume,
   getRankFromVolume,
   type NormalizedSwap,
   type WalletRankResult
 } from "../../../../lib/ranking";
 import { validateWalletAddress } from "../../../../lib/wallet-address";
+import {
+  readCachedWalletRankResult,
+  writeCachedWalletRankResult
+} from "../../../../lib/wallet-rank-cache";
 
 type WalletRouteContext = {
   params: Promise<{
@@ -27,8 +36,6 @@ type MobulaFetchResult =
 
 const MOBULA_API_URL = "https://api.mobula.io/api/2/wallet/trades";
 const MONAD_MAINNET_CHAIN_ID = "evm:143";
-const MOBULA_PAGE_LIMIT = 100;
-const MOBULA_MAX_PAGES = 5;
 
 export async function GET(_request: Request, { params }: WalletRouteContext) {
   const { address } = await params;
@@ -41,6 +48,12 @@ export async function GET(_request: Request, { params }: WalletRouteContext) {
       },
       { status: 400 }
     );
+  }
+
+  const cachedResult = readCachedWalletRankResult(walletAddress);
+
+  if (cachedResult) {
+    return NextResponse.json(cachedResult);
   }
 
   const mobulaApiKey = process.env.MOBULA_API_KEY?.trim();
@@ -66,9 +79,10 @@ export async function GET(_request: Request, { params }: WalletRouteContext) {
     );
   }
 
-  return NextResponse.json(
-    createWalletRankResult(walletAddress, mobulaResult.swaps)
-  );
+  const result = createWalletRankResult(walletAddress, mobulaResult.swaps);
+  writeCachedWalletRankResult(walletAddress, result);
+
+  return NextResponse.json(result);
 }
 
 async function fetchMobulaWalletTrades(
@@ -77,11 +91,12 @@ async function fetchMobulaWalletTrades(
 ): Promise<MobulaFetchResult> {
   const swaps: NormalizedSwap[] = [];
 
-  for (let page = 0; page < MOBULA_MAX_PAGES; page += 1) {
+  for (let page = 0; page < MOBULA_TRADES_MAX_PAGES; page += 1) {
+    const currentOffset = page * MOBULA_TRADES_PAGE_LIMIT;
     const payload = await fetchMobulaWalletTradesPage(
       walletAddress,
       mobulaApiKey,
-      page * MOBULA_PAGE_LIMIT
+      currentOffset
     );
 
     if (!payload.ok) {
@@ -91,7 +106,14 @@ async function fetchMobulaWalletTrades(
     const pageSwaps = normalizeMobulaWalletTradesResponse(payload.data);
     swaps.push(...pageSwaps);
 
-    if (!hasAnotherMobulaPage(payload.data, pageSwaps.length)) {
+    if (
+      !shouldFetchNextMobulaTradesPage({
+        payload: payload.data,
+        currentOffset,
+        pageLimit: MOBULA_TRADES_PAGE_LIMIT,
+        normalizedSwapCount: pageSwaps.length
+      })
+    ) {
       break;
     }
   }
@@ -120,7 +142,7 @@ async function fetchMobulaWalletTradesPage(
   const url = new URL(MOBULA_API_URL);
   url.searchParams.set("wallet", walletAddress);
   url.searchParams.set("chainIds", MONAD_MAINNET_CHAIN_ID);
-  url.searchParams.set("limit", String(MOBULA_PAGE_LIMIT));
+  url.searchParams.set("limit", String(MOBULA_TRADES_PAGE_LIMIT));
   url.searchParams.set("offset", String(offset));
   url.searchParams.set("order", "desc");
 
@@ -177,32 +199,6 @@ async function safelyReadJson(response: Response): Promise<unknown | null> {
   }
 }
 
-function hasAnotherMobulaPage(payload: unknown, normalizedSwapCount: number): boolean {
-  const pageEntries = getMobulaPageEntries(payload);
-
-  if (pageEntries !== undefined) {
-    return pageEntries >= MOBULA_PAGE_LIMIT;
-  }
-
-  return normalizedSwapCount >= MOBULA_PAGE_LIMIT;
-}
-
-function getMobulaPageEntries(payload: unknown): number | undefined {
-  if (!isRecord(payload)) {
-    return undefined;
-  }
-
-  const directPagination = asRecord(payload.pagination);
-  const data = asRecord(payload.data);
-  const nestedPagination = data ? asRecord(data.pagination) : undefined;
-  const pagination = directPagination ?? nestedPagination;
-  const pageEntries = pagination?.pageEntries;
-
-  return typeof pageEntries === "number" && Number.isFinite(pageEntries)
-    ? pageEntries
-    : undefined;
-}
-
 function createWalletRankResult(
   walletAddress: string,
   swaps: NormalizedSwap[]
@@ -230,12 +226,4 @@ function countUniqueSuccessfulSwaps(swaps: NormalizedSwap[]): number {
   }
 
   return transactionHashes.size;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

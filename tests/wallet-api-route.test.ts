@@ -1,11 +1,18 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "../app/api/wallet/[address]/route";
 import type { WalletRankResult } from "../lib/ranking";
+import { clearWalletRankResultCache } from "../lib/wallet-rank-cache";
 
 const VALID_WALLET = "0xa4bB6472656E8D75A3590E4fDbE0d8C16C6d3369";
 const ORIGINAL_MOBULA_API_KEY = process.env.MOBULA_API_KEY;
 
+beforeEach(() => {
+  clearWalletRankResultCache();
+});
+
 afterEach(() => {
+  clearWalletRankResultCache();
+
   if (ORIGINAL_MOBULA_API_KEY === undefined) {
     delete process.env.MOBULA_API_KEY;
   } else {
@@ -117,6 +124,43 @@ describe("GET /api/wallet/[address]", () => {
     expect(payload).not.toHaveProperty("nftsHeld");
   });
 
+  it("serves repeated wallet lookups from cache by normalized address", async () => {
+    process.env.MOBULA_API_KEY = "test-key";
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        data: [
+          {
+            transactionHash: "0xswap-cache",
+            quoteTokenAmountUSD: 125,
+            blockchain: "Monad"
+          }
+        ],
+        pagination: {
+          offset: 0,
+          limit: 100,
+          pageEntries: 1
+        }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const firstResponse = await GET(
+      createRequest(VALID_WALLET),
+      createContext(VALID_WALLET)
+    );
+    const secondResponse = await GET(
+      createRequest(VALID_WALLET.toLowerCase()),
+      createContext(VALID_WALLET.toLowerCase())
+    );
+    const firstPayload = (await firstResponse.json()) as WalletRankResult;
+    const secondPayload = (await secondResponse.json()) as WalletRankResult;
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(secondPayload).toEqual(firstPayload);
+  });
+
   it("returns No Swap Data when Mobula returns no trades", async () => {
     process.env.MOBULA_API_KEY = "test-key";
     vi.stubGlobal(
@@ -165,6 +209,47 @@ describe("GET /api/wallet/[address]", () => {
 
     expect(response.status).toBe(502);
     expect(payload.error).toContain("Mobula wallet trades could not be loaded");
+  });
+
+  it("does not cache provider errors", async () => {
+    process.env.MOBULA_API_KEY = "test-key";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ error: "provider failed" }, { status: 500 })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          data: [
+            {
+              transactionHash: "0xswap-after-error",
+              quoteTokenAmountUSD: 220,
+              blockchain: "Monad"
+            }
+          ],
+          pagination: {
+            offset: 0,
+            limit: 100,
+            pageEntries: 1
+          }
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const errorResponse = await GET(
+      createRequest(VALID_WALLET),
+      createContext(VALID_WALLET)
+    );
+    const successResponse = await GET(
+      createRequest(VALID_WALLET),
+      createContext(VALID_WALLET)
+    );
+    const successPayload = (await successResponse.json()) as WalletRankResult;
+
+    expect(errorResponse.status).toBe(502);
+    expect(successResponse.status).toBe(200);
+    expect(successPayload.estimatedSwapVolume).toBe(220);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
