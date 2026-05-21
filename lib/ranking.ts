@@ -33,8 +33,6 @@ export type WalletRankResult = {
   rank: RankResult;
   estimatedSwapVolume: number;
   totalSwaps: number;
-  tokensHeld: number;
-  nftsHeld: number;
   lastUpdated: string;
 };
 
