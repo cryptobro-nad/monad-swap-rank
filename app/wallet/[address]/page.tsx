@@ -2,9 +2,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { AlertCircle, ArrowLeft, CheckCircle2, Info, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ShareResultButton } from "@/components/share-result-button";
 import { StatsCard } from "@/components/stats-card";
-import { ShareableRankCard } from "@/components/shareable-rank-card";
+import { RankCardShareActions } from "@/components/rank-card-share-actions";
 import { DISCLAIMER } from "@/lib/constants";
 import { type WalletRankResult } from "@/lib/ranking";
 import { getWalletResultDisplay } from "@/lib/wallet-result-display";
@@ -157,7 +156,10 @@ export default async function WalletPage({ params }: WalletPageProps) {
           </Button>
         </div>
 
-        <ShareableRankCard visual={display.rankVisual} />
+        <RankCardShareActions
+          visual={display.rankVisual}
+          shareText={display.shareText}
+        />
 
         <section className="mt-6 rounded-md border border-white/10 bg-white/[0.07] p-5 shadow-xl shadow-black/20 backdrop-blur">
           <div className="flex gap-3">
@@ -184,13 +186,6 @@ export default async function WalletPage({ params }: WalletPageProps) {
           <StatsCard label="Mobula-Detected Swaps" value={display.totalSwaps} />
           <StatsCard label="Last Updated" value={result.lastUpdated} />
         </section>
-
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <ShareResultButton resultText={display.shareText} />
-          <p className="text-sm text-white/65">
-            Last updated {result.lastUpdated}
-          </p>
-        </div>
 
         <section className="mt-6 max-w-3xl rounded-md border border-white/10 bg-white/[0.07] p-5 text-sm leading-6 text-white/72 shadow-sm">
           <p>
