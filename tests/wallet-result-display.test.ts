@@ -12,17 +12,27 @@ describe("getWalletResultDisplay", () => {
           rank: "Active Nad",
           volumeUsd: 1_250.5
         }
-      })
+      }),
+      "https://monad-swap-rank.example"
     );
 
     expect(display).toMatchObject({
       estimatedSwapVolume: "$1,250.50",
       totalSwaps: "12",
       hasSwapData: true,
-      statusTitle: "Real swap data found"
+      statusTitle: "Real swap data found",
+      rankVisual: {
+        rank: "Active Nad",
+        tagline: "Activity detected. Nad confirmed.",
+        imagePath: "/rank-images/active-nad.webp"
+      }
     });
     expect(display.shareText).toContain("Active Nad");
-    expect(display.shareText).toContain("$1,250.50");
+    expect(display.shareText).toContain("Activity detected. Nad confirmed.");
+    expect(display.shareText).toContain("https://monad-swap-rank.example");
+    expect(display.shareText).not.toContain(
+      "0xa4bB6472656E8D75A3590E4fDbE0d8C16C6d3369"
+    );
   });
 
   it("builds display copy for wallets with no swap data", () => {
@@ -34,7 +44,8 @@ describe("getWalletResultDisplay", () => {
           rank: "No Swap Data",
           volumeUsd: 0
         }
-      })
+      }),
+      "https://monad-swap-rank.example"
     );
 
     expect(display).toMatchObject({
@@ -44,7 +55,7 @@ describe("getWalletResultDisplay", () => {
       statusTitle: "No swap data found"
     });
     expect(display.shareText).toBe(
-      "Monad Swap Rank: 0xa4bB6472656E8D75A3590E4fDbE0d8C16C6d3369 has no swap data yet."
+      "Monad Swap Rank: No Swap Data. No swaps, only aura. https://monad-swap-rank.example"
     );
   });
 });
@@ -60,8 +71,6 @@ function createWalletResult(
     },
     estimatedSwapVolume: 0,
     totalSwaps: 0,
-    tokensHeld: 12,
-    nftsHeld: 6,
     lastUpdated: "just now",
     ...overrides
   };
