@@ -20,19 +20,20 @@ export const ShareableRankCard = forwardRef<HTMLElement, ShareableRankCardProps>
           style={{ backgroundImage: `url(${visual.imagePath})` }}
           aria-hidden="true"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(9,3,19,0.2)_0%,rgba(9,3,19,0.58)_46%,rgba(9,3,19,0.94)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(146,82,255,0.5),transparent_24rem),radial-gradient(circle_at_82%_12%,rgba(29,185,148,0.24),transparent_20rem)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(9,3,19,0.08)_0%,rgba(9,3,19,0.28)_34%,rgba(9,3,19,0.76)_68%,rgba(9,3,19,0.97)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[58%] bg-[linear-gradient(180deg,transparent_0%,rgba(6,2,14,0.72)_48%,rgba(6,2,14,0.96)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(146,82,255,0.44),transparent_24rem),radial-gradient(circle_at_82%_12%,rgba(29,185,148,0.22),transparent_20rem)]" />
 
-        <div className="relative flex h-full flex-col justify-between p-5 text-white sm:p-8">
-          <div className="w-fit rounded-md border border-white/20 bg-black/30 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/85 shadow-lg backdrop-blur">
-            Monad Swap Rank
+        <div className="relative flex h-full flex-col p-5 text-left text-white sm:p-7">
+          <div className="w-fit rounded-md border border-white/15 bg-black/25 px-2.5 py-1.5 text-[10px] font-semibold uppercase leading-none text-white/78 shadow-md backdrop-blur sm:text-[11px]">
+            MONAD SWAP RANK
           </div>
 
-          <div className="max-w-3xl pb-1">
-            <h1 className="text-5xl font-black leading-[0.95] tracking-normal text-white drop-shadow-[0_4px_22px_rgba(0,0,0,0.85)] sm:text-7xl lg:text-8xl">
+          <div className="mt-auto max-w-3xl pb-12 sm:pb-16">
+            <h1 className="max-w-3xl text-4xl font-black leading-[0.95] tracking-normal text-white drop-shadow-[0_5px_24px_rgba(0,0,0,0.9)] sm:text-6xl lg:text-7xl">
               {visual.rank}
             </h1>
-            <p className="mt-4 max-w-2xl text-2xl font-bold leading-tight tracking-normal text-white drop-shadow-[0_3px_16px_rgba(0,0,0,0.9)] sm:text-4xl">
+            <p className="mt-6 max-w-2xl text-xl font-bold leading-tight tracking-normal text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)] sm:mt-7 sm:text-3xl">
               {visual.tagline}
             </p>
           </div>
