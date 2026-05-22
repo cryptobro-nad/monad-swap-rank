@@ -36,6 +36,26 @@ export type WalletRankResult = {
   lastUpdated: string;
 };
 
+export const RANK_ORDER: RankName[] = [
+  "No Swap Data",
+  "Baby Nad",
+  "Curious Nad",
+  "Active Nad",
+  "Heavy Nad",
+  "Whale Nad",
+  "Monad Monster"
+];
+
+export const RANK_MINIMUM_VOLUME_USD: Record<RankName, number> = {
+  "No Swap Data": 0,
+  "Baby Nad": 0,
+  "Curious Nad": 100,
+  "Active Nad": 1_000,
+  "Heavy Nad": 10_000,
+  "Whale Nad": 100_000,
+  "Monad Monster": 1_000_000
+};
+
 export function calculateTotalSwapVolume(swaps: NormalizedSwap[]): number {
   const seenTransactionHashes = new Set<string>();
 
