@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { AlertCircle, ArrowLeft, CheckCircle2, Info, RefreshCw } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Info,
+  RefreshCw,
+  TrendingUp
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/stats-card";
 import { RankCardShareActions } from "@/components/rank-card-share-actions";
 import { DISCLAIMER } from "@/lib/constants";
-import { type WalletRankResult } from "@/lib/ranking";
+import { formatUsd, type WalletRankResult } from "@/lib/ranking";
+import { getNextRankProgress } from "@/lib/rank-progress";
 import { getWalletResultDisplay } from "@/lib/wallet-result-display";
 
 type WalletPageProps = {
@@ -138,7 +146,11 @@ export default async function WalletPage({ params }: WalletPageProps) {
   }
 
   const display = getWalletResultDisplay(result, appUrl);
+  const nextRankProgress = getNextRankProgress(result.estimatedSwapVolume);
   const StatusIcon = display.hasSwapData ? CheckCircle2 : Info;
+  const showProgressBar =
+    Boolean(nextRankProgress.nextRank) &&
+    nextRankProgress.currentRank !== "No Swap Data";
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,hsl(263_77%_20%),transparent_34rem),radial-gradient(circle_at_bottom_right,hsl(160_58%_18%),transparent_30rem),linear-gradient(135deg,hsl(260_45%_8%),hsl(232_34%_10%))] text-white">
@@ -185,6 +197,62 @@ export default async function WalletPage({ params }: WalletPageProps) {
           />
           <StatsCard label="Mobula-Detected Swaps" value={display.totalSwaps} />
           <StatsCard label="Last Updated" value={result.lastUpdated} />
+        </section>
+
+        <section
+          aria-labelledby="next-rank-progress"
+          className="mt-6 rounded-md border border-white/10 bg-white/[0.07] p-5 shadow-xl shadow-black/20 backdrop-blur"
+        >
+          <div className="flex gap-3">
+            <TrendingUp
+              className="mt-0.5 h-5 w-5 shrink-0 text-secondary"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <p
+                id="next-rank-progress"
+                className="text-sm font-semibold text-white"
+              >
+                Next rank progress
+              </p>
+              <p className="mt-2 text-xl font-black tracking-normal text-white sm:text-2xl">
+                {nextRankProgress.nextRank
+                  ? `${nextRankProgress.currentRank} -> ${nextRankProgress.nextRank}`
+                  : nextRankProgress.currentRank}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/72">
+                {nextRankProgress.displayCopy}
+              </p>
+
+              {showProgressBar ? (
+                <div className="mt-4">
+                  <div
+                    className="h-3 overflow-hidden rounded-md bg-white/10"
+                    role="progressbar"
+                    aria-label={`Progress to ${nextRankProgress.nextRank}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(
+                      nextRankProgress.progressPercentage
+                    )}
+                  >
+                    <div
+                      className="h-full rounded-md bg-[linear-gradient(90deg,hsl(160_58%_46%),hsl(263_77%_68%))]"
+                      style={{
+                        width: `${nextRankProgress.progressPercentage}%`
+                      }}
+                    />
+                  </div>
+                  {nextRankProgress.nextRankThresholdUsd !== undefined ? (
+                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-white/50">
+                      Next tier starts at{" "}
+                      {formatUsd(nextRankProgress.nextRankThresholdUsd)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </section>
 
         <section
