@@ -202,10 +202,18 @@ function drawOverlays(
   height: number
 ) {
   const verticalGradient = context.createLinearGradient(0, 0, 0, height);
-  verticalGradient.addColorStop(0, "rgba(9, 3, 19, 0.2)");
-  verticalGradient.addColorStop(0.46, "rgba(9, 3, 19, 0.58)");
-  verticalGradient.addColorStop(1, "rgba(9, 3, 19, 0.94)");
+  verticalGradient.addColorStop(0, "rgba(9, 3, 19, 0.08)");
+  verticalGradient.addColorStop(0.34, "rgba(9, 3, 19, 0.28)");
+  verticalGradient.addColorStop(0.68, "rgba(9, 3, 19, 0.76)");
+  verticalGradient.addColorStop(1, "rgba(9, 3, 19, 0.97)");
   context.fillStyle = verticalGradient;
+  context.fillRect(0, 0, width, height);
+
+  const lowerGradient = context.createLinearGradient(0, height * 0.42, 0, height);
+  lowerGradient.addColorStop(0, "rgba(6, 2, 14, 0)");
+  lowerGradient.addColorStop(0.48, "rgba(6, 2, 14, 0.72)");
+  lowerGradient.addColorStop(1, "rgba(6, 2, 14, 0.96)");
+  context.fillStyle = lowerGradient;
   context.fillRect(0, 0, width, height);
 
   const purpleGlow = context.createRadialGradient(
@@ -216,7 +224,7 @@ function drawOverlays(
     height * 0.18,
     Math.min(width, height) * 0.55
   );
-  purpleGlow.addColorStop(0, "rgba(146, 82, 255, 0.5)");
+  purpleGlow.addColorStop(0, "rgba(146, 82, 255, 0.44)");
   purpleGlow.addColorStop(1, "rgba(146, 82, 255, 0)");
   context.fillStyle = purpleGlow;
   context.fillRect(0, 0, width, height);
@@ -229,7 +237,7 @@ function drawOverlays(
     height * 0.12,
     Math.min(width, height) * 0.48
   );
-  greenGlow.addColorStop(0, "rgba(29, 185, 148, 0.24)");
+  greenGlow.addColorStop(0, "rgba(29, 185, 148, 0.22)");
   greenGlow.addColorStop(1, "rgba(29, 185, 148, 0)");
   context.fillStyle = greenGlow;
   context.fillRect(0, 0, width, height);
@@ -237,20 +245,20 @@ function drawOverlays(
 
 function drawBranding(context: CanvasRenderingContext2D, width: number) {
   const padding = getCardPadding(width);
-  const pillWidth = 178;
-  const pillHeight = 34;
+  const pillWidth = width >= 640 ? 154 : 142;
+  const pillHeight = width >= 640 ? 30 : 28;
 
   drawRoundedRect(context, padding, padding, pillWidth, pillHeight, 6);
-  context.fillStyle = "rgba(0, 0, 0, 0.3)";
+  context.fillStyle = "rgba(0, 0, 0, 0.25)";
   context.fill();
-  context.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  context.strokeStyle = "rgba(255, 255, 255, 0.15)";
   context.lineWidth = 1;
   context.stroke();
 
-  context.fillStyle = "rgba(255, 255, 255, 0.86)";
-  context.font = "700 12px Arial, sans-serif";
+  context.fillStyle = "rgba(255, 255, 255, 0.78)";
+  context.font = `700 ${width >= 640 ? 11 : 10}px Arial, sans-serif`;
   context.textBaseline = "middle";
-  context.fillText("MONAD SWAP RANK", padding + 14, padding + pillHeight / 2);
+  context.fillText("MONAD SWAP RANK", padding + 10, padding + pillHeight / 2);
 }
 
 function drawRankText(
@@ -261,8 +269,10 @@ function drawRankText(
 ) {
   const padding = getCardPadding(width);
   const maxTextWidth = Math.min(width - padding * 2, 760);
-  const rankFontSize = clamp(width * 0.115, 48, 96);
-  const taglineFontSize = clamp(width * 0.055, 24, 42);
+  const bottomPadding = getTextBottomPadding(width);
+  const titleTaglineGap = width >= 640 ? 30 : 24;
+  const rankFontSize = clamp(width * 0.095, 40, 78);
+  const taglineFontSize = clamp(width * 0.048, 20, 34);
   const taglineLines = wrapText(
     context,
     visual.tagline,
@@ -271,22 +281,25 @@ function drawRankText(
   );
   const taglineLineHeight = taglineFontSize * 1.18;
   const taglineHeight = taglineLines.length * taglineLineHeight;
-  const rankY = height - padding - taglineHeight - rankFontSize * 1.1;
+  const rankY = height - bottomPadding - taglineHeight - titleTaglineGap;
 
   context.shadowColor = "rgba(0, 0, 0, 0.9)";
-  context.shadowBlur = 18;
-  context.shadowOffsetY = 4;
+  context.shadowBlur = 20;
+  context.shadowOffsetY = 5;
   context.fillStyle = "#ffffff";
   context.textBaseline = "alphabetic";
   context.font = `900 ${rankFontSize}px Arial Black, Arial, sans-serif`;
   context.fillText(visual.rank, padding, rankY);
 
+  context.shadowColor = "rgba(0, 0, 0, 0.95)";
+  context.shadowBlur = 18;
+  context.shadowOffsetY = 4;
   context.font = `700 ${taglineFontSize}px Arial, sans-serif`;
   for (const [index, line] of taglineLines.entries()) {
     context.fillText(
       line,
       padding,
-      height - padding - taglineHeight + taglineLineHeight * (index + 0.78)
+      height - bottomPadding - taglineHeight + taglineLineHeight * (index + 0.78)
     );
   }
 
@@ -296,7 +309,11 @@ function drawRankText(
 }
 
 function getCardPadding(width: number): number {
-  return width >= 640 ? 32 : 20;
+  return width >= 640 ? 28 : 20;
+}
+
+function getTextBottomPadding(width: number): number {
+  return width >= 640 ? 64 : 48;
 }
 
 function wrapText(
