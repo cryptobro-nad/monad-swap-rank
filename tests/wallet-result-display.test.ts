@@ -23,12 +23,12 @@ describe("getWalletResultDisplay", () => {
       statusTitle: "Real swap data found",
       rankVisual: {
         rank: "Active Nad",
-        tagline: "Activity detected. Nad confirmed.",
+        tagline: "This wallet has been outside.",
         imagePath: "/rank-images/active-nad.webp"
       }
     });
     expect(display.shareText).toContain("Active Nad");
-    expect(display.shareText).toContain("Activity detected. Nad confirmed.");
+    expect(display.shareText).toContain("This wallet has been outside.");
     expect(display.shareText).toContain("https://monad-swap-rank.example");
     expect(display.shareText).not.toContain(
       "0xa4bB6472656E8D75A3590E4fDbE0d8C16C6d3369"
@@ -55,7 +55,7 @@ describe("getWalletResultDisplay", () => {
       statusTitle: "No swap data found"
     });
     expect(display.shareText).toBe(
-      "Monad Swap Rank: No Swap Data. No swaps, only aura. https://monad-swap-rank.example"
+      "Monad Swap Rank: No Swap Data. Observer mode activated. https://monad-swap-rank.example"
     );
   });
 });

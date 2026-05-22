@@ -20,7 +20,7 @@ export function getWalletResultDisplay(
 ): WalletResultDisplay {
   const estimatedSwapVolume = formatUsd(result.estimatedSwapVolume);
   const totalSwaps = result.totalSwaps.toLocaleString("en-US");
-  const rankVisual = getRankCardVisual(result.rank.rank);
+  const rankVisual = getRankCardVisual(result.rank.rank, result.walletAddress);
   const hasSwapData =
     result.rank.rank !== "No Swap Data" &&
     result.estimatedSwapVolume > 0 &&
