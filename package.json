@@ -8,6 +8,7 @@
     "build": "next build",
     "lint": "eslint .",
     "test": "vitest run --environment node --globals --dir tests",
+    "safety:public": "node --experimental-strip-types scripts/check-public-safety.ts",
     "test:mobula": "node --experimental-strip-types scripts/test-mobula-wallet-trades.ts",
     "test:blockvision": "node --experimental-strip-types scripts/test-blockvision-wallet-stats.ts"
   },
