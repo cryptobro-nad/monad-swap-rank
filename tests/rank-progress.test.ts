@@ -8,7 +8,7 @@ describe("getNextRankProgress", () => {
       nextRank: "Whale Nad",
       nextRankThresholdUsd: 100_000,
       amountNeededUsd: 60_000,
-      displayCopy: "You are around $60,000 away from Whale Nad."
+      displayCopy: "$60,000 left to reach Whale Nad."
     });
     expect(getNextRankProgress(40_000).progressPercentage).toBeCloseTo(33.33, 2);
   });
