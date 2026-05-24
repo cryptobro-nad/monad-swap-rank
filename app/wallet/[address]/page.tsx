@@ -173,35 +173,9 @@ export default async function WalletPage({ params }: WalletPageProps) {
           shareText={display.shareText}
         />
 
-        <section className="mt-6 rounded-md border border-white/10 bg-white/[0.07] p-5 shadow-xl shadow-black/20 backdrop-blur">
-          <div className="flex gap-3">
-            <StatusIcon
-              className="mt-0.5 h-5 w-5 shrink-0 text-secondary"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="text-sm font-semibold text-white">
-                {display.statusTitle}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-white/70">
-                {display.statusDescription}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <StatsCard
-            label="Estimated Swap Volume"
-            value={display.estimatedSwapVolume}
-          />
-          <StatsCard label="Mobula-Detected Swaps" value={display.totalSwaps} />
-          <StatsCard label="Last Updated" value={result.lastUpdated} />
-        </section>
-
         <section
-          aria-labelledby="next-rank-progress"
-          className="mt-6 rounded-md border border-white/10 bg-white/[0.07] p-5 shadow-xl shadow-black/20 backdrop-blur"
+          aria-labelledby="next-milestone"
+          className="mt-4 rounded-md border border-white/10 bg-white/[0.07] p-4 shadow-xl shadow-black/20 backdrop-blur sm:p-5"
         >
           <div className="flex gap-3">
             <TrendingUp
@@ -210,10 +184,10 @@ export default async function WalletPage({ params }: WalletPageProps) {
             />
             <div className="min-w-0 flex-1">
               <p
-                id="next-rank-progress"
+                id="next-milestone"
                 className="text-sm font-semibold text-white"
               >
-                Next rank progress
+                Next milestone
               </p>
               <p className="mt-2 text-xl font-black tracking-normal text-white sm:text-2xl">
                 {nextRankProgress.nextRank
@@ -245,7 +219,7 @@ export default async function WalletPage({ params }: WalletPageProps) {
                   </div>
                   {nextRankProgress.nextRankThresholdUsd !== undefined ? (
                     <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-white/50">
-                      Next tier starts at{" "}
+                      Next tier:{" "}
                       {formatUsd(nextRankProgress.nextRankThresholdUsd)}
                     </p>
                   ) : null}
@@ -253,6 +227,32 @@ export default async function WalletPage({ params }: WalletPageProps) {
               ) : null}
             </div>
           </div>
+        </section>
+
+        <section className="mt-6 rounded-md border border-white/10 bg-white/[0.07] p-5 shadow-xl shadow-black/20 backdrop-blur">
+          <div className="flex gap-3">
+            <StatusIcon
+              className="mt-0.5 h-5 w-5 shrink-0 text-secondary"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {display.statusTitle}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-white/70">
+                {display.statusDescription}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-4 md:grid-cols-3">
+          <StatsCard
+            label="Estimated Swap Volume"
+            value={display.estimatedSwapVolume}
+          />
+          <StatsCard label="Mobula-Detected Swaps" value={display.totalSwaps} />
+          <StatsCard label="Last Updated" value={result.lastUpdated} />
         </section>
 
         <section
