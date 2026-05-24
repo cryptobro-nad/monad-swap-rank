@@ -56,7 +56,7 @@ export function getNextRankProgress(volumeUsd: number): NextRankProgress {
     nextRankThresholdUsd,
     amountNeededUsd,
     progressPercentage,
-    displayCopy: `You are around ${formatUsd(amountNeededUsd)} away from ${nextRank}.`
+    displayCopy: `${formatUsd(amountNeededUsd)} left to reach ${nextRank}.`
   };
 }
 
