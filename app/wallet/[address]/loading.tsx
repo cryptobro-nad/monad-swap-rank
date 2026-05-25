@@ -20,8 +20,13 @@ export default function WalletLoading() {
           </Button>
         </div>
 
-        <div className="animate-pulse">
-          <div className="aspect-[4/5] min-h-[430px] rounded-md border border-white/10 bg-white/[0.08] shadow-2xl shadow-black/20 sm:aspect-[16/10] sm:min-h-[520px]" />
+        <div className="mx-auto w-full max-w-4xl animate-pulse">
+          <div className="aspect-[5/6] min-h-[370px] rounded-md border border-white/10 bg-white/[0.08] shadow-2xl shadow-black/20 sm:aspect-[16/9] sm:min-h-[420px] lg:min-h-[460px]" />
+          <div className="mt-3 flex flex-col gap-2.5 sm:mt-4 sm:flex-row sm:gap-3">
+            <div className="h-11 rounded-md bg-white/[0.08] sm:w-28" />
+            <div className="h-11 rounded-md bg-white/[0.08] sm:w-36" />
+            <div className="h-11 rounded-md bg-white/[0.08] sm:w-36" />
+          </div>
         </div>
 
         <div className="mt-6 grid animate-pulse gap-4 md:grid-cols-3">
