@@ -82,13 +82,13 @@ export function RankCardShareActions({
   }
 
   return (
-    <section aria-label="Share rank card">
+    <section aria-label="Share rank card" className="mx-auto w-full max-w-4xl">
       <ShareableRankCard ref={cardRef} visual={visual} />
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div className="mt-3 flex flex-col gap-2.5 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-start sm:gap-3">
         <Button
           type="button"
-          className="h-12 gap-2"
+          className="h-11 w-full justify-center gap-2 px-4 sm:w-auto"
           onClick={handleShareCard}
           disabled={pendingAction !== null}
         >
@@ -99,7 +99,7 @@ export function RankCardShareActions({
         <Button
           type="button"
           variant="outline"
-          className="h-12 gap-2 border-white/15 bg-white/[0.08] text-white hover:bg-white/15 hover:text-white"
+          className="h-11 w-full justify-center gap-2 border-white/15 bg-white/[0.08] px-4 text-white hover:bg-white/15 hover:text-white sm:w-auto"
           onClick={handleDownloadCard}
           disabled={pendingAction !== null}
         >
@@ -107,13 +107,15 @@ export function RankCardShareActions({
           {pendingAction === "download" ? "Preparing Card" : "Download Card"}
         </Button>
 
-        <ShareResultButton
-          resultText={shareText}
-          label="Copy Share Text"
-          variant="outline"
-          className="border-white/15 bg-white/[0.08] text-white hover:bg-white/15 hover:text-white"
-          messageClassName="text-white/68"
-        />
+        <div className="w-full sm:w-auto">
+          <ShareResultButton
+            resultText={shareText}
+            label="Copy Share Text"
+            variant="outline"
+            className="h-11 w-full justify-center border-white/15 bg-white/[0.08] px-4 text-white hover:bg-white/15 hover:text-white sm:w-auto"
+            messageClassName="text-white/68"
+          />
+        </div>
       </div>
       {statusMessage ? (
         <p className="mt-2 text-sm font-medium text-white/68">
@@ -270,9 +272,9 @@ function drawRankText(
   const padding = getCardPadding(width);
   const maxTextWidth = Math.min(width - padding * 2, 760);
   const bottomPadding = getTextBottomPadding(width);
-  const titleTaglineGap = width >= 640 ? 30 : 24;
-  const rankFontSize = clamp(width * 0.095, 40, 78);
-  const taglineFontSize = clamp(width * 0.048, 20, 34);
+  const titleTaglineGap = width >= 640 ? 22 : 18;
+  const rankFontSize = clamp(width * 0.079, 36, 64);
+  const taglineFontSize = clamp(width * 0.04, 18, 28);
   const taglineLines = wrapText(
     context,
     visual.tagline,
@@ -313,7 +315,7 @@ function getCardPadding(width: number): number {
 }
 
 function getTextBottomPadding(width: number): number {
-  return width >= 640 ? 64 : 48;
+  return width >= 640 ? 44 : 36;
 }
 
 function wrapText(
