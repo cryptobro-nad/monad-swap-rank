@@ -7,7 +7,8 @@ const BETWEEN_TRANSACTION_PAGE_DELAY_MS = 1750;
 const RATE_LIMIT_RETRY_DELAY_MS = 7500;
 const RATE_LIMIT_STATUS = 429;
 const DEFAULT_TRANSACTION_MAX_PAGES = 5;
-const MAX_TRANSACTION_MAX_PAGES = 10;
+const NORMAL_TRANSACTION_MAX_PAGES = 10;
+const CONFIRMED_TRANSACTION_MAX_PAGES = 40;
 const TRANSACTION_CURSOR_PARAM = "cursor";
 
 type JsonRecord = Record<string, unknown>;
@@ -72,11 +73,13 @@ type TransactionPaginationSummary = {
     | "no-next-page"
     | "max-pages-reached"
     | "provider-error"
-    | "no-records";
+    | "no-records"
+    | "rate-limit-failure";
   pageStatuses: number[];
   pageRecordCounts: number[];
   pageDelayMs: number;
   cursorParam: typeof TRANSACTION_CURSOR_PARAM;
+  confirmLargeRun: boolean;
 };
 
 type BlockVisionSummary = {
@@ -84,6 +87,7 @@ type BlockVisionSummary = {
   provider: "BlockVision";
   network: "Monad";
   endpointFilter: EndpointKey | "all";
+  confirmLargeRun: boolean;
   requestPolicy: {
     sequential: boolean;
     betweenEndpointDelayMs: number;
@@ -92,7 +96,8 @@ type BlockVisionSummary = {
     maxRetriesPerEndpoint: number;
     transactionPaginationEnabled: boolean;
     transactionMaxPages: number;
-    transactionMaxPagesLimit: number;
+    normalTransactionMaxPagesLimit: number;
+    confirmedTransactionMaxPagesLimit: number;
   };
   tokenCount?: number;
   nftCount?: number;
@@ -135,12 +140,15 @@ function parseArguments(args: string[]): {
   endpointError?: string;
   maxPages: number;
   maxPagesError?: string;
+  confirmLargeRun: boolean;
+  confirmLargeRunError?: string;
 } {
   let wallet: string | undefined;
   let endpointFilter: EndpointKey | undefined;
   let endpointError: string | undefined;
   let maxPages = DEFAULT_TRANSACTION_MAX_PAGES;
   let maxPagesError: string | undefined;
+  let confirmLargeRun = false;
 
   for (const argument of args) {
     if (argument === "--") {
@@ -159,18 +167,19 @@ function parseArguments(args: string[]): {
       continue;
     }
 
+    if (argument === "--confirm-large-run") {
+      confirmLargeRun = true;
+      continue;
+    }
+
     if (argument.startsWith("--max-pages=")) {
       const rawMaxPages = argument.slice("--max-pages=".length).trim();
       const parsedMaxPages = Number(rawMaxPages);
 
-      if (
-        Number.isInteger(parsedMaxPages) &&
-        parsedMaxPages >= 1 &&
-        parsedMaxPages <= MAX_TRANSACTION_MAX_PAGES
-      ) {
+      if (Number.isInteger(parsedMaxPages) && parsedMaxPages >= 1) {
         maxPages = parsedMaxPages;
       } else {
-        maxPagesError = `Invalid --max-pages value "${rawMaxPages}". Use an integer from 1 to ${MAX_TRANSACTION_MAX_PAGES}.`;
+        maxPagesError = `Invalid --max-pages value "${rawMaxPages}". Use an integer from 1 to ${CONFIRMED_TRANSACTION_MAX_PAGES}.`;
       }
 
       continue;
@@ -181,12 +190,29 @@ function parseArguments(args: string[]): {
     }
   }
 
+  const maxAllowedPages = confirmLargeRun
+    ? CONFIRMED_TRANSACTION_MAX_PAGES
+    : NORMAL_TRANSACTION_MAX_PAGES;
+
+  if (!maxPagesError && maxPages > maxAllowedPages) {
+    maxPagesError = confirmLargeRun
+      ? `Invalid --max-pages value "${maxPages}". Use an integer from 1 to ${CONFIRMED_TRANSACTION_MAX_PAGES}.`
+      : `Invalid --max-pages value "${maxPages}". Use 1 to ${NORMAL_TRANSACTION_MAX_PAGES}, or add --confirm-large-run with --endpoint=transactions to allow up to ${CONFIRMED_TRANSACTION_MAX_PAGES}.`;
+  }
+
+  const confirmLargeRunError =
+    confirmLargeRun && endpointFilter !== "transactions"
+      ? "--confirm-large-run can only be used with --endpoint=transactions."
+      : undefined;
+
   return {
     wallet,
     endpointFilter,
     endpointError,
     maxPages,
-    maxPagesError
+    maxPagesError,
+    confirmLargeRun,
+    confirmLargeRunError
   };
 }
 
@@ -626,7 +652,8 @@ function createEndpointWithCursor(
 async function requestPaginatedTransactionEndpoint(
   endpoint: BlockVisionEndpoint,
   apiKey: string,
-  maxPages: number
+  maxPages: number,
+  confirmLargeRun: boolean
 ): Promise<EndpointSummary> {
   const records: JsonRecord[] = [];
   const pageStatuses: number[] = [];
@@ -671,7 +698,8 @@ async function requestPaginatedTransactionEndpoint(
     }
 
     if (!response.ok) {
-      stopReason = "provider-error";
+      stopReason =
+        response.status === RATE_LIMIT_STATUS ? "rate-limit-failure" : "provider-error";
       break;
     }
 
@@ -715,7 +743,8 @@ async function requestPaginatedTransactionEndpoint(
     pageStatuses,
     pageRecordCounts,
     pageDelayMs: BETWEEN_TRANSACTION_PAGE_DELAY_MS,
-    cursorParam: TRANSACTION_CURSOR_PARAM
+    cursorParam: TRANSACTION_CURSOR_PARAM,
+    confirmLargeRun
   };
   const baseSummary = createEndpointSummary(
     endpoint,
@@ -741,7 +770,11 @@ async function requestPaginatedTransactionEndpoint(
 async function requestEndpointsSequentially(
   endpoints: BlockVisionEndpoint[],
   apiKey: string,
-  options: { paginateTransactions: boolean; maxPages: number }
+  options: {
+    paginateTransactions: boolean;
+    maxPages: number;
+    confirmLargeRun: boolean;
+  }
 ): Promise<EndpointSummary[]> {
   const summaries: EndpointSummary[] = [];
 
@@ -752,11 +785,12 @@ async function requestEndpointsSequentially(
 
     summaries.push(
       options.paginateTransactions && endpoint.key === "transactions"
-        ? await requestPaginatedTransactionEndpoint(
-            endpoint,
-            apiKey,
-            options.maxPages
-          )
+          ? await requestPaginatedTransactionEndpoint(
+              endpoint,
+              apiKey,
+              options.maxPages,
+              options.confirmLargeRun
+            )
         : await requestEndpointWithRateLimitRetry(endpoint, apiKey)
     );
   }
@@ -773,7 +807,7 @@ async function main(): Promise<void> {
 
   if (!wallet) {
     console.error(
-      "Missing wallet address. Usage: pnpm test:blockvision -- <wallet-address> [--endpoint=tokens|nfts|transactions|activities] [--max-pages=5]"
+      "Missing wallet address. Usage: pnpm test:blockvision -- <wallet-address> [--endpoint=tokens|nfts|transactions|activities] [--max-pages=5] [--confirm-large-run]"
     );
     process.exitCode = 1;
     return;
@@ -781,6 +815,12 @@ async function main(): Promise<void> {
 
   if (options.endpointError) {
     console.error(options.endpointError);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (options.confirmLargeRunError) {
+    console.error(options.confirmLargeRunError);
     process.exitCode = 1;
     return;
   }
@@ -864,7 +904,8 @@ async function main(): Promise<void> {
   const shouldPaginateTransactions = options.endpointFilter === "transactions";
   const summaries = await requestEndpointsSequentially(selectedEndpoints, apiKey, {
     paginateTransactions: shouldPaginateTransactions,
-    maxPages: options.maxPages
+    maxPages: options.maxPages,
+    confirmLargeRun: options.confirmLargeRun
   });
 
   const tokenSummary = summaries.find((summary) => summary.name === "accountTokens");
@@ -878,6 +919,7 @@ async function main(): Promise<void> {
     provider: "BlockVision",
     network: "Monad",
     endpointFilter: options.endpointFilter ?? "all",
+    confirmLargeRun: options.confirmLargeRun,
     requestPolicy: {
       sequential: true,
       betweenEndpointDelayMs: BETWEEN_ENDPOINT_DELAY_MS,
@@ -886,7 +928,8 @@ async function main(): Promise<void> {
       maxRetriesPerEndpoint: 1,
       transactionPaginationEnabled: shouldPaginateTransactions,
       transactionMaxPages: options.maxPages,
-      transactionMaxPagesLimit: MAX_TRANSACTION_MAX_PAGES
+      normalTransactionMaxPagesLimit: NORMAL_TRANSACTION_MAX_PAGES,
+      confirmedTransactionMaxPagesLimit: CONFIRMED_TRANSACTION_MAX_PAGES
     },
     tokenCount: tokenSummary?.count.value,
     nftCount: nftSummary?.count.value,
